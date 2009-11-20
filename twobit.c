@@ -224,8 +224,6 @@ char byte_to_base(unsigned char byte, int offset) {
   int idx = (byte & mask) >> (rev_offset * 2);
   char * bases = "TCAG";
 
-  printf("(%d %d) (%d %d) (%d %c)\n", (int) byte, (int) mask, (int)(byte & mask), offset, idx, bases[idx]);
-
   return bases[idx];
 }
 
@@ -233,6 +231,7 @@ char * twobit_sequence(TwoBit * ptr, const char * name, int start, int end) {
   struct twobit_index * seq = find_sequence(ptr->index, name);
   int size, rsize;
   char * result;
+  int i;
 
   if (!seq) 
     return NULL;
@@ -253,13 +252,11 @@ char * twobit_sequence(TwoBit * ptr, const char * name, int start, int end) {
     const unsigned char * block;
 
     int first_block = start / 4;
-    int i, offset;
+    int offset;
 
     block = seq->sequence + first_block;
     offset = start % 4;
     
-    printf("%d %d %d\n", first_block, offset, (int)*block);
-
     i = 0;
     while (i < rsize) {
       result[i] = byte_to_base(*block, offset);
@@ -275,6 +272,22 @@ char * twobit_sequence(TwoBit * ptr, const char * name, int start, int end) {
   }
 
   /* fill in Ns */
+  for (i = 0; i < seq->n_blocks; ++i) {
+    uint32 bstart = seq->n_block_starts[i];
+    uint32 bsize = seq->n_block_sizes[i];
+
+    if (bstart <= end) {
+      int j, k;
+
+      if (bstart < start) {
+	bsize -= (start - bstart + 1);
+	bstart = start;
+      }
+
+      for (j = 0, k = bstart; j < bsize && k <= end; ++j, ++k)
+	result[k - start] = 'N';
+    }
+  }
 
   return result;
 }
