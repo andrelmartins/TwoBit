@@ -28,8 +28,16 @@ int main(int argc, char ** argv) {
   printf("%s: size = %d\n", name, twobit_sequence_size(tb, name));
 
   seq = twobit_sequence(tb, name, start, end);
-  if (seq)
-    printf("%s: %s\n", name, seq);
+  if (seq) {
+    int i;
+    printf(">%s:%d-%d\n", name, start, end + 1);
+    for (i = 0; i < end - start + 1; ++i) {
+      if (i != 0 && !(i % 50))
+	putc('\n', stdout);
+      putc(seq[i], stdout);
+    }
+    putc('\n', stdout);
+  }
 
   /* free resources */
   if (seq) free(seq);
