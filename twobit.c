@@ -291,3 +291,52 @@ char * twobit_sequence(TwoBit * ptr, const char * name, int start, int end) {
 
   return result;
 }
+
+double * twobit_base_frequencies(TwoBit * ptr, const char * name) {
+  struct twobit_index * seq = find_sequence(ptr->index, name);
+  int size;
+  double * result;
+  int i;
+
+  if (!seq) 
+    return NULL;
+
+  size = seq->size;
+  result = (double*) calloc(4, sizeof(double));
+
+  /* sum counts */
+  {
+    const unsigned char * block;
+
+    int offset;
+
+    block = seq->sequence;
+    offset = 0;
+    
+    i = 0;
+    while (i < size) {
+      char base = byte_to_base(*block, offset);
+      
+      switch (base) { /* remap alphabet */
+      case 'A': ++result[0]; break;
+      case 'C': ++result[1]; break;
+      case 'G': ++result[2]; break;
+      case 'T': ++result[3]; break;
+      }
+
+      ++i;
+      ++offset;
+      if (offset == 4) {
+	offset = 0;
+	++block;
+      }
+    }
+    
+  }
+
+  /* turn counts to frequencies */
+  for (i = 0; i < 4; ++i)
+    result[i] = result[i] / size;
+
+  return result;
+}
