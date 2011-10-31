@@ -275,12 +275,13 @@ char * twobit_sequence(TwoBit * ptr, const char * name, int start, int end) {
   for (i = 0; i < seq->n_blocks; ++i) {
     uint32 bstart = seq->n_block_starts[i];
     uint32 bsize = seq->n_block_sizes[i];
+    uint32 bend = bstart + bsize - 1;
 
-    if (bstart <= end) {
+    if (bstart <= end && bend >= start) {
       int j, k;
 
       if (bstart < start) {
-	bsize -= (start - bstart + 1);
+	bsize -= (start - bstart);
 	bstart = start;
       }
 
