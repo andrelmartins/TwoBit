@@ -141,7 +141,7 @@ void free_index(struct twobit_index * index) {
   }
 }
 
-TwoBit * twobit_open(char * filename) {
+TwoBit * twobit_open(const char * filename) {
   int fd;
   struct stat sb;
   char * data;

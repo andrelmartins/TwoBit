@@ -3,7 +3,7 @@
 
 typedef struct twobit_ TwoBit;
 
-TwoBit * twobit_open(char * filename);
+TwoBit * twobit_open(const char * filename);
 void twobit_close(TwoBit * ptr);
 
 int twobit_sequence_size(TwoBit * ptr, const char * name);
