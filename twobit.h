@@ -14,4 +14,6 @@ char * twobit_sequence(TwoBit * ptr, const char * name, int start, int end);
 /* return base frequencies: alphabet = ACGT */
 double * twobit_base_frequencies(TwoBit * ptr, const char * name);
 
+/* return sequence names (NULL terminated, caller must free memory) */
+char ** twobit_sequence_names(TwoBit * ptr);
 #endif

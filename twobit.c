@@ -340,3 +340,22 @@ double * twobit_base_frequencies(TwoBit * ptr, const char * name) {
 
   return result;
 }
+
+char ** twobit_sequence_names(TwoBit * ptr) {
+  char ** result;
+  int n_sequences = 0;
+  struct twobit_index * idx;
+  int i;
+
+  for (idx = ptr->index; idx != NULL; idx = idx->next)
+    ++n_sequences;
+
+  result = (char**) calloc(n_sequences + 1, sizeof(char*));
+  
+  for (i = 0, idx = ptr->index; idx != NULL; ++i, idx = idx->next) {
+    char * name = strdup(idx->name);
+    result[i] = name;
+  }
+
+  return result;
+}
