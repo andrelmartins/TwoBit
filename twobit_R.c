@@ -98,7 +98,7 @@ SEXP rtwobit_sequence(SEXP obj, SEXP name, SEXP start, SEXP end) {
     char * seq = twobit_sequence(twobit, CHAR(STRING_ELT(name, 0)),
 				 INTEGER(start)[0], INTEGER(end)[0]);
     if (seq == NULL)
-      error("unknown sequence or invalid range");
+      error("unknown sequence or invalid range: %s:%d-%d", CHAR(STRING_ELT(name, 0)), INTEGER(start)[0], INTEGER(end)[0]);
     else {
       PROTECT(res = allocVector(STRSXP, 1));
       SET_STRING_ELT(res, 0, mkChar(seq));
