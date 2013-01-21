@@ -30,3 +30,17 @@ twobit.sequence <- function(twobit, name, start, end) {
   out <- .Call("rtwobit_sequence", twobit, name, start, end)
   return(out)
 }
+
+twobit.reverse.complement <- function(sequence) {
+  alphH = charToRaw("ACGT")
+  revAlphaH = charToRaw("TGCA")
+  seq = toupper(sequence)
+  rawSeq = charToRaw(seq)
+  rawSeq = rev(rawSeq)
+  res = vector(mode="raw", length=length(rawSeq))
+
+  for (i in 1:4)
+    res[rawSeq == alphH[i]] = revAlphaH[i]
+  res[res == 0] = charToRaw("N")
+  rawToChar(res)
+}
