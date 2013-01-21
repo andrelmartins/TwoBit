@@ -1,0 +1,6 @@
+pkg/src/twobit.c
+pkg/src/twobit.h
+*.roxygen
+2bit_ls
+test
+twoBitFreq

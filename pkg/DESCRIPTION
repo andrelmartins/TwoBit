@@ -1,0 +1,10 @@
+Package: twoBit
+Type: Package
+Title: R interface to query twoBit files
+Version: 0.1
+Date: 2013-01-21
+Author: Andre L. Martins
+Maintainer: Andre L. Martins <alm253@cornell.edu>
+Description: R interface to query twoBit files
+License: BSD
+LazyLoad: yes

@@ -1,4 +1,4 @@
-all: twoBitFreq test twobit.so
+all: twoBitFreq test
 
 twoBitFreq: main_freq.c twobit.c twobit.h
 	gcc -o twoBitFreq -Wall -g main_freq.c twobit.c 
@@ -6,5 +6,7 @@ twoBitFreq: main_freq.c twobit.c twobit.h
 test: main.c twobit.c twobit.h
 	gcc -o test -Wall -g main.c twobit.c
 
-twobit.so: twobit_R.c twobit.h twobit.c
-	R CMD SHLIB twobit.c twobit_R.c
+twoBit.pkg:
+	rm -Rf pkg.roxygen
+	R CMD roxygen pkg
+	R CMD INSTALL pkg.roxygen
