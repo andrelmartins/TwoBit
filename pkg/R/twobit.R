@@ -42,7 +42,7 @@ twobit.sequence <- function(twobit, name, start, end) {
 
 #' Reverse complement sequence
 #'
-#' @param seq sequence character string
+#' @param sequence DNA character string
 #' @return character string
 #' @export
 twobit.reverse.complement <- function(sequence) {
@@ -57,5 +57,20 @@ twobit.reverse.complement <- function(sequence) {
     res[rawSeq == alphH[i]] = revAlphaH[i]
   res[res == 0] = charToRaw("N")
   rawToChar(res)
+}
+
+
+#' Convert DNA character sequence to integer sequence
+#'
+#' @param sequence DNA character string
+#' @param base integer values for each nucleotide are A:base, C:base+1, G:base+2, T:base+3, N:base+4
+#' @return integer vector
+#' @export
+twobit.sequence.to.integer <- function(sequence, base=1) {
+  alphH = charToRaw("ACGTN")
+  seq = toupper(sequence)
+  rawSeq = charToRaw(seq)
+  
+  sapply(rawSeq, function(raw) base + which(alphH == raw) - 1)
 }
 
