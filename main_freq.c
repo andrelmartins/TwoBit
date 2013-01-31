@@ -27,7 +27,7 @@ int main(int argc, char ** argv) {
   
   freqs = twobit_base_frequencies(tb, name);
 
-  printf("%s base frequencies (ACTG):", name);
+  printf("%s base frequencies (ACGT):", name);
   for (i = 0; i < 4; ++i)
     printf(" %g", freqs[i]);
   putc('\n', stdout);
