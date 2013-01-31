@@ -111,3 +111,58 @@ SEXP rtwobit_sequence(SEXP obj, SEXP name, SEXP start, SEXP end) {
 
   return res;
 }
+
+SEXP rtwobit_sequence_freqs(SEXP obj, SEXP name, SEXP start, SEXP end) {
+  SEXP ptr, res = R_NilValue;
+  TwoBit * twobit;
+
+  PROTECT(name = AS_CHARACTER(name));
+  PROTECT(start = AS_INTEGER(start));
+  PROTECT(end = AS_INTEGER(end));
+
+  PROTECT(ptr = GET_ATTR(obj, install("handle_ptr")));
+  if (ptr == R_NilValue)
+    error("invalid twobit object");
+
+  twobit = R_ExternalPtrAddr(ptr);
+  if (twobit == NULL) {
+    error("twobit object has been unloaded");
+  } else {
+    char * seq = twobit_sequence(twobit, CHAR(STRING_ELT(name, 0)),
+				 INTEGER(start)[0], INTEGER(end)[0]);
+    if (seq == NULL)
+      error("unknown sequence or invalid range: %s:%d-%d", CHAR(STRING_ELT(name, 0)), INTEGER(start)[0], INTEGER(end)[0]);
+    else {
+      int cA = 0, cC = 0, cG = 0, cT = 0;
+      double total;
+      int i, len;
+      double * ptr;
+
+      PROTECT(res = NEW_NUMERIC(4));
+      ptr = REAL(res);
+
+      len = strlen(seq);
+
+      for (i = 0; i < len; ++i) {
+	switch (seq[i]) {
+	case 'A': ++cA; break;
+	case 'C': ++cC; break;
+	case 'G': ++cG; break;
+	case 'T': ++cT; break;
+	}
+      }
+
+      total = cA + cC + cG + cT;
+      ptr[0] = cA / total;
+      ptr[1] = cC / total;
+      ptr[2] = cG / total;
+      ptr[3] = cT / total;
+
+      free(seq);
+      UNPROTECT(1);
+    }
+  }
+  UNPROTECT(4);
+
+  return res;
+}

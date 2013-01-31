@@ -7,7 +7,7 @@
 #'
 #' @param filename character string with path to file
 #' @return object representing a twoBit file
-#' @useDynLib twobit rtwobit_load rtwobit_unload rtwobit_sequence
+#' @useDynLib twobit rtwobit_load rtwobit_unload rtwobit_sequence rtwobit_sequence_freqs
 #' @export
 twobit.load <- function(filename) {
   out <- .Call(rtwobit_load, filename)
@@ -74,3 +74,25 @@ twobit.sequence.to.integer <- function(sequence, base=1) {
   sapply(rawSeq, function(raw) base + which(alphH == raw) - 1)
 }
 
+
+#' Base frequencies per region
+#'
+#' @param twobit object representing a twoBit file
+#' @param bed data frame with at least 'chrom', 'start' and 'end'
+#' @return matrix of 4xN with frequencies for each of the N regions
+#' @export
+twobit.bed.frequencies <- function(twobit, bed) {
+  N = dim(bed)[1]
+
+  result = matrix(data=0, nrow=4, ncol=N)
+  chroms = as.character(bed[,1])
+  starts = as.integer(bed[,2])
+  ends = as.integer(bed[,3])
+
+  for (i in 1:N) {
+    freqs = .Call(rtwobit_sequence_freqs, twobit, chroms[i], starts[i], ends[i])
+    result[,i] = freqs
+  }
+
+  return(result)
+}
