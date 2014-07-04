@@ -41,7 +41,7 @@ impl TwoBit {
 	})
      }
 
-     pub fn sequence(&self, chrom: &str, start: i32, end: i32) -> Option<~str> {
+     pub fn sequence(&self, chrom: &str, start: i32, end: i32) -> Option<String> {
      	 chrom.with_c_str(|c_buffer| {
 	   unsafe {
 	     let cptr = twobit_sequence(self.ptr, c_buffer, start, end);
