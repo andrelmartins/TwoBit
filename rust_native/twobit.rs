@@ -21,6 +21,62 @@ struct Sequence {
 	dna_start: *mut u8
 }
 
+impl Sequence {
+	fn string(&self, start: u32, end: u32) -> String {
+		let mut rsize = (end - start + 1) as uint;
+		let mut end = end;
+		let mut result = String::from_char(rsize, 'N');
+		
+		if end >= self.n_dna_bases {
+			end = self.n_dna_bases - 1;
+			rsize = (end - start + 1) as uint;
+		}
+
+		unsafe {
+			let bvec = result.as_mut_bytes();
+
+			/* fill sequence */
+			let mut block = self.dna_start.offset( (start / 4) as int);
+			let mut offset = (start % 4) as uint;
+			
+			for i in range(0, rsize) {
+				bvec[i] = byte_to_base(*block, offset) as u8;
+
+				offset = offset + 1;
+				if offset == 4 {
+					offset = 0;
+					block = block.offset(1);
+				}
+			}
+		
+			/* fill in Ns */
+			for item in self.unk_blocks.iter() {
+				let mut bstart = item.start;
+				let mut bsize = item.length;
+				let bend = bstart + bsize - 1;
+			
+				if bstart <= end && bend >= start {
+					if bstart < start {
+						bsize = bsize - (start - bstart);
+						bstart = start;
+					}
+				
+					let mut j = 0;
+					let mut k = bstart;
+					while j < bsize && k <= end {
+						bvec[(k - start) as uint] = 'N' as u8;
+				
+						j = j + 1;
+						k = k + 1;
+					}
+				}
+			}
+		}
+		
+		return result;
+	}
+}
+
 pub struct TwoBit {
 	seqs: HashMap<String, Sequence>,
 	
@@ -148,59 +204,7 @@ impl TwoBit {
 	
 	pub fn sequence(&self, chrom: &str, start: u32, end: u32) -> Option<String> {
 		match self.seqs.find(&String::from_str(chrom)) {
-			Some(ref seq) => {
-				let mut rsize = (end - start + 1) as uint;
-				let mut end = end;
-				let mut result = String::from_char(rsize, 'N');
-				
-				if end >= seq.n_dna_bases {
-					end = seq.n_dna_bases - 1;
-					rsize = (end - start + 1) as uint;
-				}
-				
-				unsafe {
-					let bvec = result.as_mut_bytes();
-
-					/* fill sequence */
-					let mut block = seq.dna_start.offset( (start / 4) as int);
-					let mut offset = (start % 4) as uint;
-					
-					for i in range(0, rsize) {
-						bvec[i] = byte_to_base(*block, offset) as u8;
-
-						offset = offset + 1;
-						if offset == 4 {
-							offset = 0;
-							block = block.offset(1);
-						}
-					}
-				
-					/* fill in Ns */
-					for item in seq.unk_blocks.iter() {
-						let mut bstart = item.start;
-						let mut bsize = item.length;
-						let bend = bstart + bsize - 1;
-					
-						if bstart <= end && bend >= start {
-							if bstart < start {
-								bsize = bsize - (start - bstart);
-								bstart = start;
-							}
-						
-							let mut j = 0;
-							let mut k = bstart;
-							while j < bsize && k <= end {
-								bvec[(k - start) as uint] = 'N' as u8;
-						
-								j = j + 1;
-								k = k + 1;
-							}
-						}
-					}
-				}
-				
-				Some(result)
-			},
+			Some(ref seq) => Some(seq.string(start, end)),
 			None => None
 		}	
 	}
@@ -214,5 +218,33 @@ impl TwoBit {
 
 	pub fn sequence_names<'a>(&'a self) -> Vec<&'a String> {
 		self.seqs.keys().collect()
+	}
+	
+	pub fn base_frequencies(&self, chrom: &str) -> Option<[f64, ..4]> {
+		match self.seqs.find(&String::from_str(chrom)) {
+			Some(ref seq) => {
+				let seqstr = seq.string(0, seq.n_dna_bases - 1);
+				let mut counts = [0f64, 0.0, 0.0, 0.0];
+				
+				for c in seqstr.as_slice().chars() {
+					match c {
+						'A' => counts[0] = counts[0] + 1.0,
+						'C' => counts[1] = counts[1] + 1.0,
+						'G' => counts[2] = counts[2] + 1.0,
+						'T' => counts[3] = counts[3] + 1.0,
+						_ => {}
+					}
+				}
+				
+				let sum = counts[0] + counts[1] + counts[2] + counts[3];
+				counts[0] = counts[0] / sum;
+				counts[1] = counts[1] / sum;
+				counts[2] = counts[2] / sum;
+				counts[3] = counts[3] / sum;
+				
+				Some(counts)
+			}
+			None => None
+		}
 	}
 }
