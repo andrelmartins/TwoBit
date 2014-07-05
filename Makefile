@@ -1,4 +1,4 @@
-all: twoBitFreq test
+all: twoBitFreq test twobit.so
 
 twoBitFreq: main_freq.c twobit.c twobit.h
 	gcc -o twoBitFreq -Wall -g main_freq.c twobit.c 
@@ -6,7 +6,7 @@ twoBitFreq: main_freq.c twobit.c twobit.h
 test: main.c twobit.c twobit.h
 	gcc -o test -Wall -g main.c twobit.c
 
-twoBit.so: twobit.c
+twobit.so: twobit.c
 	gcc -o twobit.so -shared twobit.c
 
 twoBit.pkg:
