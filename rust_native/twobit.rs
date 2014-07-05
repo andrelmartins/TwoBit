@@ -211,4 +211,8 @@ impl TwoBit {
 			None => None
 		}	
 	}
+
+	pub fn sequence_names<'a>(&'a self) -> Vec<&'a String> {
+		self.seqs.keys().collect()
+	}
 }
