@@ -1,4 +1,3 @@
-// twobit module containing a native implementation of the twobit query library
 #![crate_id = "twobit#0.2"]
 #![crate_type = "dylib"]
 #![feature(macro_rules)]
@@ -12,6 +11,7 @@ use std::io::{ IoResult, IoError };
 
 use rustrt::rtio::RtioFileStream;
 
+#[deriving(Show)]
 struct Block { start: u32, length: u32 }
 
 struct Sequence {
@@ -22,58 +22,104 @@ struct Sequence {
 }
 
 impl Sequence {
-	fn string(&self, start: u32, end: u32) -> String {
+	fn range<'a>(&'a self, start: u32, end: u32) -> SeqRange<'a> {
 		let mut rsize = (end - start + 1) as uint;
 		let mut end = end;
-		let mut result = String::from_char(rsize, 'N');
-		
+
 		if end >= self.n_dna_bases {
+			let rest = rsize - self.n_dna_bases as uint;
 			end = self.n_dna_bases - 1;
 			rsize = (end - start + 1) as uint;
-		}
 
-		unsafe {
-			let bvec = result.as_mut_bytes();
-
-			/* fill sequence */
-			let mut block = self.dna_start.offset( (start / 4) as int);
-			let mut offset = (start % 4) as uint;
-			
-			for i in range(0, rsize) {
-				bvec[i] = byte_to_base(*block, offset) as u8;
-
-				offset = offset + 1;
-				if offset == 4 {
-					offset = 0;
-					block = block.offset(1);
-				}
+			// seq range chained with an iterator that repeats the same value
+			SeqRange { 
+				rsize: rsize, 
+				ptr: unsafe { self.dna_start.offset( (start / 4) as int) },
+				idx: 0u,
+				offset: (start % 4) as uint,
+				unk_blocks: &self.unk_blocks,
+				ub_exhausted: self.unk_blocks.len() > 0,
+				ub_idx: 0,
+				ub_start: if self.unk_blocks.len() > 0 { self.unk_blocks.get(0).start as uint } else { 0 },
+				ub_end: if self.unk_blocks.len() > 0 { (self.unk_blocks.get(0).start + self.unk_blocks.get(0).length - 1) as uint } else { 0 },
+				n_more: rest
 			}
-		
-			/* fill in Ns */
-			for item in self.unk_blocks.iter() {
-				let mut bstart = item.start;
-				let mut bsize = item.length;
-				let bend = bstart + bsize - 1;
-			
-				if bstart <= end && bend >= start {
-					if bstart < start {
-						bsize = bsize - (start - bstart);
-						bstart = start;
-					}
-				
-					let mut j = 0;
-					let mut k = bstart;
-					while j < bsize && k <= end {
-						bvec[(k - start) as uint] = 'N' as u8;
-				
-						j = j + 1;
-						k = k + 1;
-					}
-				}
+		} else {
+			SeqRange { 
+				rsize: rsize, 
+				ptr: unsafe { self.dna_start.offset( (start / 4) as int) },
+				idx: 0u,
+				offset: (start % 4) as uint,
+				unk_blocks: &self.unk_blocks,
+				ub_exhausted: self.unk_blocks.len() > 0,
+				ub_idx: 0,
+				ub_start: if self.unk_blocks.len() > 0 { self.unk_blocks.get(0).start as uint } else { 0 },
+				ub_end: if self.unk_blocks.len() > 0 { (self.unk_blocks.get(0).start + self.unk_blocks.get(0).length - 1) as uint } else { 0 },
+				n_more: 0
 			}
 		}
-		
-		return result;
+	}
+
+	fn string(&self, start: u32, end: u32) -> String {
+		String::from_utf8(self.range(start, end).collect()).unwrap()
+	}
+}
+
+struct SeqRange<'a> {
+	rsize: uint,
+	ptr: * mut u8,
+	idx: uint,
+	offset: uint,
+	unk_blocks: &'a Vec<Block>,
+	ub_exhausted: bool,
+	ub_idx: uint,
+	ub_start: uint,
+	ub_end: uint,
+	n_more: uint
+}
+
+impl<'a> Iterator<u8> for SeqRange<'a> {
+	fn next(&mut self) -> Option<u8> {
+		if self.idx == self.rsize {
+			if self.n_more > 0 {
+				self.n_more = self.n_more - 1;
+				return Some('N' as u8);
+			}
+			return None;
+		} else {
+			unsafe {
+				// are we within a block?
+				if !self.ub_exhausted {
+					loop {
+						if self.idx > self.ub_end {
+							self.ub_idx = self.ub_idx + 1;
+							if self.ub_idx == self.unk_blocks.len() {
+								self.ub_exhausted = true;
+								break;
+							} else {
+								self.ub_start = self.unk_blocks.get(self.ub_idx).start as uint;
+								self.ub_end = self.ub_start + self.unk_blocks.get(self.ub_idx).length as uint - 1;
+							}
+						} else if self.idx >= self.ub_start {
+							return Some('N' as u8);
+						}
+					}
+				}
+
+				// no, so collect data
+				let result = Some(byte_to_base(*self.ptr, self.offset) as u8);
+
+				// increment index
+				self.idx = self.idx + 1;
+				self.offset = self.offset + 1;
+				if self.offset == 4 {
+					self.offset = 0;
+					self.ptr = self.ptr.offset(1);
+				}
+
+				return result;
+			}
+		}
 	}
 }
 
@@ -219,14 +265,15 @@ impl TwoBit {
 	pub fn sequence_names<'a>(&'a self) -> Vec<&'a String> {
 		self.seqs.keys().collect()
 	}
-	
+
 	pub fn base_frequencies(&self, chrom: &str) -> Option<[f64, ..4]> {
 		match self.seqs.find(&String::from_str(chrom)) {
 			Some(ref seq) => {
-				let seqstr = seq.string(0, seq.n_dna_bases - 1);
 				let mut counts = [0f64, 0.0, 0.0, 0.0];
-				
-				for c in seqstr.as_slice().chars() {
+
+				for val in seq.range(0, seq.n_dna_bases - 1) {
+					let c = val as char;
+
 					match c {
 						'A' => counts[0] = counts[0] + 1.0,
 						'C' => counts[1] = counts[1] + 1.0,
