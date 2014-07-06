@@ -8,6 +8,7 @@ extern crate rustrt;
 use std::os::MemoryMap;
 use std::collections::hashmap::HashMap;
 use std::io::{ IoResult, IoError };
+use std::iter::FromIterator;
 
 use rustrt::rtio::RtioFileStream;
 
@@ -61,7 +62,7 @@ impl Sequence {
 	}
 
 	fn string(&self, start: u32, end: u32) -> String {
-		String::from_utf8(self.range(start, end).collect()).unwrap()
+		FromIterator::from_iter(self.range(start, end))
 	}
 }
 
@@ -90,12 +91,12 @@ impl<'a> SeqRange<'a> {
 	}
 }
 
-impl<'a> Iterator<u8> for SeqRange<'a> {
-	fn next(&mut self) -> Option<u8> {
+impl<'a> Iterator<char> for SeqRange<'a> {
+	fn next(&mut self) -> Option<char> {
 		if self.idx == self.rsize {
 			if self.n_more > 0 {
 				self.n_more = self.n_more - 1;
-				return Some('N' as u8);
+				return Some('N');
 			}
 			return None;
 		} else {
@@ -115,7 +116,7 @@ impl<'a> Iterator<u8> for SeqRange<'a> {
 						} else if self.idx >= self.ub_start {
 							self.increment_idx();
 
-							return Some('N' as u8);
+							return Some('N');
 						} else {
 							// outside block, so continue to data collection
 							break;
@@ -124,13 +125,19 @@ impl<'a> Iterator<u8> for SeqRange<'a> {
 				}
 
 				// no, so collect data
-				let result = Some(byte_to_base(*self.ptr, self.offset) as u8);
+				let result = Some(byte_to_base(*self.ptr, self.offset));
 
 				self.increment_idx();
 
 				return result;
 			}
 		}
+	}
+
+	fn size_hint(&self) -> (uint, Option<uint>) {
+		// lower and upper bound (same)
+		let bound = self.rsize - self.idx - self.n_more;
+		(bound, Some(bound))
 	}
 }
 
@@ -282,9 +289,7 @@ impl TwoBit {
 			Some(ref seq) => {
 				let mut counts = [0f64, 0.0, 0.0, 0.0];
 
-				for val in seq.range(0, seq.n_dna_bases - 1) {
-					let c = val as char;
-
+				for c in seq.range(0, seq.n_dna_bases - 1) {
 					match c {
 						'A' => counts[0] = counts[0] + 1.0,
 						'C' => counts[1] = counts[1] + 1.0,
