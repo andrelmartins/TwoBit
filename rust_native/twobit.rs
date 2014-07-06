@@ -38,7 +38,7 @@ impl Sequence {
 				idx: 0u,
 				offset: (start % 4) as uint,
 				unk_blocks: &self.unk_blocks,
-				ub_exhausted: self.unk_blocks.len() > 0,
+				ub_exhausted: self.unk_blocks.len() == 0,
 				ub_idx: 0,
 				ub_start: if self.unk_blocks.len() > 0 { self.unk_blocks.get(0).start as uint } else { 0 },
 				ub_end: if self.unk_blocks.len() > 0 { (self.unk_blocks.get(0).start + self.unk_blocks.get(0).length - 1) as uint } else { 0 },
@@ -51,7 +51,7 @@ impl Sequence {
 				idx: 0u,
 				offset: (start % 4) as uint,
 				unk_blocks: &self.unk_blocks,
-				ub_exhausted: self.unk_blocks.len() > 0,
+				ub_exhausted: self.unk_blocks.len() == 0,
 				ub_idx: 0,
 				ub_start: if self.unk_blocks.len() > 0 { self.unk_blocks.get(0).start as uint } else { 0 },
 				ub_end: if self.unk_blocks.len() > 0 { (self.unk_blocks.get(0).start + self.unk_blocks.get(0).length - 1) as uint } else { 0 },
@@ -78,6 +78,18 @@ struct SeqRange<'a> {
 	n_more: uint
 }
 
+impl<'a> SeqRange<'a> {
+	#[inline]
+	fn increment_idx(&mut self) {
+		self.idx = self.idx + 1;
+		self.offset = self.offset + 1;
+		if self.offset == 4 {
+			self.offset = 0;
+			self.ptr = unsafe { self.ptr.offset(1) };
+		}
+	}
+}
+
 impl<'a> Iterator<u8> for SeqRange<'a> {
 	fn next(&mut self) -> Option<u8> {
 		if self.idx == self.rsize {
@@ -101,7 +113,12 @@ impl<'a> Iterator<u8> for SeqRange<'a> {
 								self.ub_end = self.ub_start + self.unk_blocks.get(self.ub_idx).length as uint - 1;
 							}
 						} else if self.idx >= self.ub_start {
+							self.increment_idx();
+
 							return Some('N' as u8);
+						} else {
+							// outside block, so continue to data collection
+							break;
 						}
 					}
 				}
@@ -109,13 +126,7 @@ impl<'a> Iterator<u8> for SeqRange<'a> {
 				// no, so collect data
 				let result = Some(byte_to_base(*self.ptr, self.offset) as u8);
 
-				// increment index
-				self.idx = self.idx + 1;
-				self.offset = self.offset + 1;
-				if self.offset == 4 {
-					self.offset = 0;
-					self.ptr = self.ptr.offset(1);
-				}
+				self.increment_idx();
 
 				return result;
 			}
