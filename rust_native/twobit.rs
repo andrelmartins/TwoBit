@@ -70,7 +70,8 @@ impl Sequence {
 	}
 }
 
-struct SeqRange<'a> {
+/// Sequence range iterator
+pub struct SeqRange<'a> {
 	rsize: uint,
 	ptr: * mut u8,
 	idx: uint,
@@ -290,7 +291,24 @@ impl TwoBit {
 		match self.seqs.find(&String::from_str(chrom)) {
 			Some(ref seq) => Some(seq.string(start, end)),
 			None => None
-		}	
+		}
+	}
+
+	/// Iterator on the sequence for the range [start, end]
+	///
+	/// Note that when ranges exceed the recorded information contained in the 2bit file
+	/// excess is padded with 'N's.
+	///
+	/// # Arguments
+	///
+	/// - chrom - sequence name, typically the chromosome name
+	/// - start - zero based start coordinate for range
+	/// - end - zero based end coordinate (inclusive) for range
+	pub fn sequence_iter<'a>(&'a self, chrom: &str, start: u32, end: u32) -> Option<SeqRange<'a>> {
+		match self.seqs.find(&String::from_str(chrom)) {
+			Some(ref seq) => Some(seq.range(start, end)),
+			None => None
+		}
 	}
 	
 	/// Retrieve the length (number of bases) of a given sequence
