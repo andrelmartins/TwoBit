@@ -2,6 +2,10 @@
 #![crate_type = "dylib"]
 #![feature(macro_rules)]
 
+//! Implements the TwoBit struct giving read access to 2bit files in the format
+//! used by the UCSC Genome Browser (details at: http://genome.ucsc.edu/FAQ/FAQformat.html#format7).
+
+
 extern crate native;
 extern crate rustrt;
 
@@ -141,6 +145,7 @@ impl<'a> Iterator<char> for SeqRange<'a> {
 	}
 }
 
+/// TwoBit type, represents a 2bit object in the UCSC Genome Browser format
 pub struct TwoBit {
 	seqs: HashMap<String, Sequence>,
 	
@@ -224,6 +229,11 @@ fn byte_to_base(value: u8, offset: uint) -> char {
 
 impl TwoBit {
 	
+	/// Create a new TwoBit object from the supplied filename
+	///
+	/// # Arguments
+	///
+	/// - filename - string slice with the path to the 2bit file
 	pub fn new(filename: &str) -> IoResult<TwoBit> {
 		// open file
 		let mut fh = try_rt!(native::io::file::open(&filename.to_c_str(), rustrt::rtio::Open, rustrt::rtio::Read));
@@ -266,6 +276,16 @@ impl TwoBit {
 		return Ok(TwoBit { seqs: index, data: mmap });
 	}
 	
+	/// Collect the sequence for the range [start, end]
+	///
+	/// Note that when ranges exceed the recorded information contained in the 2bit file
+	/// excess is padded with 'N's.
+	///
+	/// # Arguments
+	///
+	/// - chrom - sequence name, typically the chromosome name
+	/// - start - zero based start coordinate for range
+	/// - end - zero based end coordinate (inclusive) for range
 	pub fn sequence(&self, chrom: &str, start: u32, end: u32) -> Option<String> {
 		match self.seqs.find(&String::from_str(chrom)) {
 			Some(ref seq) => Some(seq.string(start, end)),
@@ -273,6 +293,11 @@ impl TwoBit {
 		}	
 	}
 	
+	/// Retrieve the length (number of bases) of a given sequence
+	///
+	/// # Arguments
+	///
+	/// - chrom - sequence name, typically the chromosome name
 	pub fn sequence_len(&self, chrom: &str) -> Option<u32> {
 		match self.seqs.find(&String::from_str(chrom)) {
 			Some(&Sequence{ n_dna_bases: n, ..}) => Some(n),
@@ -280,10 +305,16 @@ impl TwoBit {
 		}	
 	}
 
+	/// Retrieve the names of the sequences contained in this file
 	pub fn sequence_names<'a>(&'a self) -> Vec<&'a String> {
 		self.seqs.keys().collect()
 	}
 
+	/// Compute the nucleotide frequencies (ACGT) of a given sequence
+	///
+	/// # Arguments
+	///
+	/// - chrom - sequence name, typically the chromosome name
 	pub fn base_frequencies(&self, chrom: &str) -> Option<[f64, ..4]> {
 		match self.seqs.find(&String::from_str(chrom)) {
 			Some(ref seq) => {
