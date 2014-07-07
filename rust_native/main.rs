@@ -32,17 +32,17 @@ fn main() {
 				Ok(tbv) => {
 					// get chromosome size
  					match tbv.sequence_len(chrom.as_slice()) {
-   					Some(n) => println!("{}: size = {}", chrom, n),
-   					None => {
-     					println!("unknown sequence: {}", chrom);
-     					return;
-   					}
+   						Some(n) => println!("{}: size = {}", chrom, n),
+   						None => {
+     						println!("unknown sequence: {}", chrom);
+     						return;
+   						}
  					};
 				
 					let seq = tbv.sequence(chrom.as_slice(), start, end);
 					match seq {
-    	    	Some(seqstr) => {
-      	    	println!(">{}:{}-{}", chrom, start, end + 1);
+    	    			Some(seqstr) => {
+      	    			println!(">{}:{}-{}", chrom, start, end + 1);
      					//println!("{}", seqstr);
      					print_sequence(seqstr.as_slice());
    					},
