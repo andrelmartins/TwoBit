@@ -42,11 +42,11 @@ fn main() {
 					let seq = tbv.sequence(chrom.as_slice(), start, end);
 					match seq {
 						Some(seqstr) => {
-						println!(">{}:{}-{}", chrom, start, end + 1);
-						//println!("{}", seqstr);
-						print_sequence(seqstr.as_slice());
-					},
-					None => println!("nothing")
+							println!(">{}:{}-{}", chrom, start, end + 1);
+							//println!("{}", seqstr);
+							print_sequence(seqstr.as_slice());
+						},
+						None => println!("nothing")
 					}; 
 				},
 				Err(std::io::IoError{ kind: _, desc: x, detail: _}) => println!("{}: {}", x, filename)
