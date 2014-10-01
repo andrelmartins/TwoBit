@@ -4,7 +4,7 @@ use std::os;
 use twobit::TwoBit;
 
 fn print_sequence(seq: &str) {
-   let mut i = 0;
+   let mut i = 0i;
 
    for base in seq.chars() {
 	 if i != 0 && (i % 50) == 0 {

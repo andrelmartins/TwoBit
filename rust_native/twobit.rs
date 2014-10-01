@@ -1,4 +1,4 @@
-#![crate_id = "twobit#0.2"]
+#![crate_name = "twobit"]
 #![crate_type = "dylib"]
 #![feature(macro_rules)]
 
@@ -22,6 +22,7 @@ struct Block { start: u32, length: u32 }
 struct Sequence {
 	n_dna_bases: u32,
 	unk_blocks: Vec<Block>,
+	#[allow(dead_code)]
 	mask_blocks: Vec<Block>,
 	dna_start: *mut u8
 }
@@ -45,8 +46,8 @@ impl Sequence {
 				unk_blocks: &self.unk_blocks,
 				ub_exhausted: self.unk_blocks.len() == 0,
 				ub_idx: 0,
-				ub_start: if self.unk_blocks.len() > 0 { self.unk_blocks.get(0).start as uint } else { 0 },
-				ub_end: if self.unk_blocks.len() > 0 { (self.unk_blocks.get(0).start + self.unk_blocks.get(0).length - 1) as uint } else { 0 },
+				ub_start: if self.unk_blocks.len() > 0 { self.unk_blocks[0].start as uint } else { 0 },
+				ub_end: if self.unk_blocks.len() > 0 { (self.unk_blocks[0].start + self.unk_blocks[0].length - 1) as uint } else { 0 },
 				n_more: rest
 			}
 		} else {
@@ -58,8 +59,8 @@ impl Sequence {
 				unk_blocks: &self.unk_blocks,
 				ub_exhausted: self.unk_blocks.len() == 0,
 				ub_idx: 0,
-				ub_start: if self.unk_blocks.len() > 0 { self.unk_blocks.get(0).start as uint } else { 0 },
-				ub_end: if self.unk_blocks.len() > 0 { (self.unk_blocks.get(0).start + self.unk_blocks.get(0).length - 1) as uint } else { 0 },
+				ub_start: if self.unk_blocks.len() > 0 { self.unk_blocks[0].start as uint } else { 0 },
+				ub_end: if self.unk_blocks.len() > 0 { (self.unk_blocks[0].start + self.unk_blocks[0].length - 1) as uint } else { 0 },
 				n_more: 0
 			}
 		}
@@ -115,8 +116,8 @@ impl<'a> Iterator<char> for SeqRange<'a> {
 								self.ub_exhausted = true;
 								break;
 							} else {
-								self.ub_start = self.unk_blocks.get(self.ub_idx).start as uint;
-								self.ub_end = self.ub_start + self.unk_blocks.get(self.ub_idx).length as uint - 1;
+								self.ub_start = self.unk_blocks[self.ub_idx].start as uint;
+								self.ub_end = self.ub_start + self.unk_blocks[self.ub_idx].length as uint - 1;
 							}
 						} else if self.idx >= self.ub_start {
 							self.increment_idx();
@@ -160,7 +161,7 @@ macro_rules! try_rt(
 
 fn mmap_read_u32(ptr: * mut u8, offset: uint) -> u32 {
 	return unsafe { 
-		let tmp : *u32 = std::mem::transmute(ptr.offset(offset as int) as *[u8, ..4]);
+		let tmp : *const u32 = std::mem::transmute(ptr.offset(offset as int) as *const [u8, ..4]);
 		*tmp };
 }
 
@@ -196,7 +197,7 @@ fn mmap_read_index(data: *mut u8, count: u32) -> HashMap<String, Sequence> {
 			
 		for _ in range(0, count) {
 			let name_size = mmap_read_u8(data, header_start);
-			let name = unsafe { String::from_raw_parts(name_size as uint, name_size as uint, data.offset((header_start + 1) as int)) };
+			let name = unsafe { std::string::raw::from_parts(data.offset((header_start + 1) as int), name_size as uint, name_size as uint) };
 			let offset = mmap_read_u32(data, header_start + 1 + name_size as uint);
 			
 			// get actual info
@@ -250,29 +251,29 @@ impl TwoBit {
 		
 		
 		// validate header
-		let val = mmap_read_u32(mmap.data, 0);
+		let val = mmap_read_u32(mmap.data(), 0);
 		
 		if val != 0x1A412743 {
 			return Err(IoError { kind: std::io::OtherIoError, desc: "Invalid signature or wrong architecture.", detail: None });
 		}
 		
-		let val = mmap_read_u32(mmap.data, 4);
+		let val = mmap_read_u32(mmap.data(), 4);
 		if val != 0 {
 			return Err(IoError { kind: std::io::OtherIoError, desc: "Unknown file version.", detail: None });
 		} // TODO: actually report version found
 		
-		let n_sequences = mmap_read_u32(mmap.data, 8);
+		let n_sequences = mmap_read_u32(mmap.data(), 8);
 		if n_sequences == 0 {
 			return Err(IoError { kind: std::io::OtherIoError, desc: "Zero sequence count.", detail: None });
 		}
 		
-		let val = mmap_read_u32(mmap.data, 12);
+		let val = mmap_read_u32(mmap.data(), 12);
 		if val != 0 {
 			return Err(IoError { kind: std::io::OtherIoError, desc: "Reserved bytes not zero.", detail: None });
 		} // TODO: actually report value found
 		
 		// parse index
-		let index = mmap_read_index(mmap.data, n_sequences);
+		let index = mmap_read_index(mmap.data(), n_sequences);
 	
 		return Ok(TwoBit { seqs: index, data: mmap });
 	}
