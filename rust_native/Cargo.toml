@@ -1,0 +1,9 @@
+[package]
+
+name = "twobit"
+version = "0.2.2"
+authors = ["Andre Martins <alm253@cornell.edu>"]
+
+[lib]
+name = "twobit"
+path = "src/twobit.rs"
