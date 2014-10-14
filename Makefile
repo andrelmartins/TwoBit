@@ -11,5 +11,5 @@ twobit.so: twobit.c
 
 twoBit.pkg:
 	rm -Rf pkg.roxygen
-	R CMD roxygen pkg
+	(R CMD roxygen pkg)||(./Roxygen pkg)
 	R CMD INSTALL pkg.roxygen

@@ -1,0 +1,30 @@
+#!/usr/bin/Rscript
+library(methods)
+library(utils)
+library(roxygen2)
+
+args <- commandArgs(TRUE)
+
+sourcePath = args[1]
+
+tmp = charToRaw(sourcePath)
+if (tmp[length(tmp)] == charToRaw("/"))
+  tmp = tmp[1:(length(tmp) - 1)]
+sourcePath = rawToChar(tmp)
+
+output = paste(sourcePath, ".roxygen", sep='')
+
+#
+# stupid roxygen no longer supports separte output path
+#
+res = system(paste("mkdir", output), intern = FALSE, wait = TRUE)
+if (res != 0)
+ stop("failed to create output folder")
+
+res = system(paste("cp -Rf ", sourcePath, "/* ", output, sep=''), intern = FALSE, wait = TRUE)
+if (res != 0)
+ stop("failed to copy input to output folder")
+
+#roxygenize(sourcePath, output)
+#roxygenize(output, output)
+roxygenize(output)
