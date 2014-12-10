@@ -7,3 +7,15 @@ authors = ["Andre Martins <alm253@cornell.edu>"]
 [lib]
 name = "twobit"
 path = "src/twobit.rs"
+
+[[bin]]
+name = "main"
+path = "src/bin/main.rs"
+bench = false
+doc = false
+
+[[bin]]
+name = "twoBitFreq"
+path = "src/bin/twoBitFreq.rs"
+bench = false
+doc = false
