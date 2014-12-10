@@ -53,6 +53,6 @@ fn main() {
 			}
 		},
 		[ ref prog, ..] => println!("Usage: {} <2bit filename> <name> <start> <end>", prog),
-		_ => fail!()
+		_ => panic!()
 	}
 }

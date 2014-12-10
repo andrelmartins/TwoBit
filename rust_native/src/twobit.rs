@@ -6,15 +6,13 @@
 //! used by the UCSC Genome Browser (details at: http://genome.ucsc.edu/FAQ/FAQformat.html#format7).
 
 
-extern crate native;
 extern crate rustrt;
 
 use std::os::MemoryMap;
-use std::collections::hashmap::HashMap;
+use std::collections::HashMap;
 use std::io::{ IoResult, IoError };
 use std::iter::FromIterator;
-
-use rustrt::rtio::RtioFileStream;
+use std::os::unix::AsRawFd;
 
 #[deriving(Show)]
 struct Block { start: u32, length: u32 }
@@ -197,7 +195,7 @@ fn mmap_read_index(data: *mut u8, count: u32) -> HashMap<String, Sequence> {
 			
 		for _ in range(0, count) {
 			let name_size = mmap_read_u8(data, header_start);
-			let name = unsafe { std::string::raw::from_parts(data.offset((header_start + 1) as int), name_size as uint, name_size as uint) };
+			let name = unsafe { std::string::String::from_raw_parts(data.offset((header_start + 1) as int), name_size as uint, name_size as uint) };
 			let offset = mmap_read_u32(data, header_start + 1 + name_size as uint);
 			
 			// get actual info
@@ -238,11 +236,12 @@ impl TwoBit {
 	/// - filename - string slice with the path to the 2bit file
 	pub fn new(filename: &str) -> IoResult<TwoBit> {
 		// open file
-		let mut fh = try_rt!(native::io::file::open(&filename.to_c_str(), rustrt::rtio::Open, rustrt::rtio::Read));
-		let fs = try_rt!(fh.fstat());
+		//let mut fh = try_rt!(native::io::file::open(&filename.to_c_str(), rustrt::rtio::Open, rustrt::rtio::Read));
+		let fh = try!(std::io::File::open(&Path::new(filename)));
+		let fs = try!(fh.stat());
 	
 		// build memory map
-		let mmap = match MemoryMap::new(fs.size as uint, [ std::os::MapReadable, std::os::MapFd(fh.fd())]) {
+		let mmap = match MemoryMap::new(fs.size as uint, &[ std::os::MapReadable, std::os::MapFd(fh.as_raw_fd())]) {
 			Ok(val) => val,
 			Err(_) => return Err(IoError{kind: std::io::OtherIoError, desc: "Memory map failed!", detail: None})
 		};
@@ -289,7 +288,7 @@ impl TwoBit {
 	/// - start - zero based start coordinate for range
 	/// - end - zero based end coordinate (inclusive) for range
 	pub fn sequence(&self, chrom: &str, start: u32, end: u32) -> Option<String> {
-		match self.seqs.find(&String::from_str(chrom)) {
+		match self.seqs.get(&String::from_str(chrom)) {
 			Some(ref seq) => Some(seq.string(start, end)),
 			None => None
 		}
@@ -306,7 +305,7 @@ impl TwoBit {
 	/// - start - zero based start coordinate for range
 	/// - end - zero based end coordinate (inclusive) for range
 	pub fn sequence_iter<'a>(&'a self, chrom: &str, start: u32, end: u32) -> Option<SeqRange<'a>> {
-		match self.seqs.find(&String::from_str(chrom)) {
+		match self.seqs.get(&String::from_str(chrom)) {
 			Some(ref seq) => Some(seq.range(start, end)),
 			None => None
 		}
@@ -318,7 +317,7 @@ impl TwoBit {
 	///
 	/// - chrom - sequence name, typically the chromosome name
 	pub fn sequence_len(&self, chrom: &str) -> Option<u32> {
-		match self.seqs.find(&String::from_str(chrom)) {
+		match self.seqs.get(&String::from_str(chrom)) {
 			Some(&Sequence{ n_dna_bases: n, ..}) => Some(n),
 			None => None
 		}	
@@ -335,7 +334,7 @@ impl TwoBit {
 	///
 	/// - chrom - sequence name, typically the chromosome name
 	pub fn base_frequencies(&self, chrom: &str) -> Option<[f64, ..4]> {
-		match self.seqs.find(&String::from_str(chrom)) {
+		match self.seqs.get(&String::from_str(chrom)) {
 			Some(ref seq) => {
 				let mut counts = [0f64, 0.0, 0.0, 0.0];
 
