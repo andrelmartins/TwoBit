@@ -408,14 +408,10 @@ impl DNAOps for String {
 	fn into_numeric(&self, offset: u8) -> Vec<u8> {
 		self.chars().map(|base: char|
 		 match base {
-		 	'a' => offset,
-		 	'A' => offset,
-		 	'c' => offset + 1,
-		 	'C' => offset + 1,
-		 	'g' => offset + 2,
-		 	'G' => offset + 2,
-		 	't' => offset + 3,
-		 	'T' => offset + 3,
+		 	'a' | 'A' => offset,
+		 	'c' | 'C' => offset + 1,
+		 	'g' | 'G' => offset + 2,
+		 	't' | 'T' => offset + 3,
 		 	_ => offset + 4
 		 }).collect::<Vec<u8>>()
 	}
