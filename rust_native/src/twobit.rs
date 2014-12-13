@@ -235,8 +235,9 @@ impl TwoBit {
 	///
 	/// - filename - string slice with the path to the 2bit file
 	pub fn new(filename: &str) -> IoResult<TwoBit> {
+		// TODO: revise interface to take a "File" instance instead of a filename
+	
 		// open file
-		//let mut fh = try_rt!(native::io::file::open(&filename.to_c_str(), rustrt::rtio::Open, rustrt::rtio::Read));
 		let fh = try!(std::io::File::open(&Path::new(filename)));
 		let fs = try!(fh.stat());
 	
@@ -358,5 +359,64 @@ impl TwoBit {
 			}
 			None => None
 		}
+	}
+}
+
+/// Set of useful nucleotide sequence manipulation operations.
+pub trait DNAOps {
+
+	/// Obtain reverse complement of nucleotide sequence
+	fn reverse_complement(&self) -> Self;
+	
+	/// Convert a DNA string into an integer vector
+	///
+	/// # Arguments
+	///
+	/// - offset - starting value for DNA nucleotides (A = offset, C = offset + 1, G = offset + 2, T = offset + 3, else offset + 4)
+	fn into_numeric(&self, offset: u8) -> Vec<u8>;
+}
+
+impl DNAOps for String {
+
+	fn reverse_complement(&self) -> String {
+		// create a new string by iterating over the chars of the old one
+		let mut result = String::with_capacity(self.len());
+		
+		for x in self.chars().map(|base|
+		  match base {
+		  	'a' => 't',
+		  	'A' => 'T',
+		  	'c' => 'g',
+		  	'C' => 'G',
+		  	'g' => 'c',
+		  	'G' => 'C',
+		  	't' => 'a',
+		  	'T' => 'A',
+		  	_ => 'N'
+		  }) {
+		  result.push(x);
+		} 
+		 
+		// use as_mut_vec to reverse the resulting string inplace
+		unsafe {
+			let vec = result.as_mut_vec();
+			vec.reverse();
+		}
+		return result;
+	}
+	
+	fn into_numeric(&self, offset: u8) -> Vec<u8> {
+		self.chars().map(|base: char|
+		 match base {
+		 	'a' => offset,
+		 	'A' => offset,
+		 	'c' => offset + 1,
+		 	'C' => offset + 1,
+		 	'g' => offset + 2,
+		 	'G' => offset + 2,
+		 	't' => offset + 3,
+		 	'T' => offset + 3,
+		 	_ => offset + 4
+		 }).collect::<Vec<u8>>()
 	}
 }
