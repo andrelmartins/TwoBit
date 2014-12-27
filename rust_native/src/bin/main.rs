@@ -22,9 +22,8 @@ fn main() {
 	match args.as_slice() {
 		[ _, ref filename, ref chrom, ref start, ref end ] => {
 		
-			let start = from_str::<u32>(start.as_slice()).expect("Invalid start coordinate");
-			let end = from_str::<u32>(end.as_slice()).expect("Invalid end coordinate");
-		
+			let start = start.parse::<u32>().expect("Invalid start coordinate");
+			let end = end.parse::<u32>().expect("Invalid end coordinate");
 		
 			let tb = TwoBit::new(filename.as_slice());
 			

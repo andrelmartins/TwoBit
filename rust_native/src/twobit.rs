@@ -6,8 +6,6 @@
 //! used by the UCSC Genome Browser (details at: http://genome.ucsc.edu/FAQ/FAQformat.html#format7).
 
 
-extern crate rustrt;
-
 use std::os::MemoryMap;
 use std::collections::HashMap;
 use std::io::{ IoResult, IoError };
@@ -155,7 +153,7 @@ pub struct TwoBit {
 
 macro_rules! try_rt(
     ($e:expr) => (match $e { Ok(e) => e, Err(rustrt::rtio::IoError{code: code, extra: _, detail: _}) => return Err(IoError::from_errno(code, true)) })
-)
+);
 
 fn mmap_read_u32(ptr: * mut u8, offset: uint) -> u32 {
 	return unsafe { 
@@ -242,7 +240,7 @@ impl TwoBit {
 		let fs = try!(fh.stat());
 	
 		// build memory map
-		let mmap = match MemoryMap::new(fs.size as uint, &[ std::os::MapReadable, std::os::MapFd(fh.as_raw_fd())]) {
+		let mmap = match MemoryMap::new(fs.size as uint, &[ std::os::MapOption::MapReadable, std::os::MapOption::MapFd(fh.as_raw_fd())]) {
 			Ok(val) => val,
 			Err(_) => return Err(IoError{kind: std::io::OtherIoError, desc: "Memory map failed!", detail: None})
 		};
