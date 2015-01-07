@@ -196,7 +196,12 @@ fn mmap_read_index(data: *mut u8, count: u32) -> HashMap<String, Sequence> {
 			
 		for _ in range(0, count) {
 			let name_size = mmap_read_u8(data, header_start);
-			let name = unsafe { std::string::String::from_raw_parts(data.offset((header_start + 1) as int), name_size as uint, name_size as uint) };
+			let name = unsafe {
+				let slice: &mut [u8] = std::mem::transmute(std::raw::Slice { data: data.offset((header_start + 1) as int), len: name_size as uint });
+				let strslice = std::str::from_utf8_unchecked(slice);				
+				String::from_str(strslice)
+			};
+			
 			let offset = mmap_read_u32(data, header_start + 1 + name_size as uint);
 			
 			// get actual info
