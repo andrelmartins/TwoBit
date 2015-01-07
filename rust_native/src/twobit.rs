@@ -1,6 +1,7 @@
 #![crate_name = "twobit"]
 #![crate_type = "dylib"]
 #![feature(macro_rules)]
+#![feature(associated_types)]
 
 //! Implements the TwoBit struct giving read access to 2bit files in the format
 //! used by the UCSC Genome Browser (details at: http://genome.ucsc.edu/FAQ/FAQformat.html#format7).
@@ -12,7 +13,7 @@ use std::io::{ IoResult, IoError };
 use std::iter::FromIterator;
 use std::os::unix::AsRawFd;
 
-#[deriving(Show)]
+#[derive(Show)]
 struct Block { start: u32, length: u32 }
 
 struct Sequence {
@@ -93,7 +94,9 @@ impl<'a> SeqRange<'a> {
 	}
 }
 
-impl<'a> Iterator<char> for SeqRange<'a> {
+impl<'a> Iterator for SeqRange<'a> {
+	type Item = char;
+
 	fn next(&mut self) -> Option<char> {
 		if self.idx == self.rsize {
 			if self.n_more > 0 {
@@ -157,7 +160,7 @@ macro_rules! try_rt(
 
 fn mmap_read_u32(ptr: * mut u8, offset: uint) -> u32 {
 	return unsafe { 
-		let tmp : *const u32 = std::mem::transmute(ptr.offset(offset as int) as *const [u8, ..4]);
+		let tmp : *const u32 = std::mem::transmute(ptr.offset(offset as int) as *const [u8; 4]);
 		*tmp };
 }
 
@@ -332,7 +335,7 @@ impl TwoBit {
 	/// # Arguments
 	///
 	/// - chrom - sequence name, typically the chromosome name
-	pub fn base_frequencies(&self, chrom: &str) -> Option<[f64, ..4]> {
+	pub fn base_frequencies(&self, chrom: &str) -> Option<[f64; 4]> {
 		match self.seqs.get(&String::from_str(chrom)) {
 			Some(ref seq) => {
 				let mut counts = [0f64, 0.0, 0.0, 0.0];
