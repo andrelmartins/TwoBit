@@ -2,9 +2,10 @@
 extern crate twobit;
 use std::os;
 use twobit::TwoBit;
+use std::io::Error;
 
 fn print_sequence(seq: &str) {
-   let mut i = 0i;
+   let mut i = 0i32;
 
    for base in seq.chars() {
 	 if i != 0 && (i % 50) == 0 {
@@ -22,8 +23,8 @@ fn main() {
 	match args.as_slice() {
 		[ _, ref filename, ref chrom, ref start, ref end ] => {
 		
-			let start = start.parse::<u32>().expect("Invalid start coordinate");
-			let end = end.parse::<u32>().expect("Invalid end coordinate");
+			let start = start.parse::<u32>().ok().expect("Invalid start coordinate");
+			let end = end.parse::<u32>().ok().expect("Invalid end coordinate");
 		
 			let tb = TwoBit::new(filename.as_slice());
 			
@@ -48,7 +49,7 @@ fn main() {
 						None => println!("nothing")
 					}; 
 				},
-				Err(std::io::IoError{ kind: _, desc: x, detail: _}) => println!("{}: {}", x, filename)
+				Err(ioerr) => println!("{}: {}", ioerr.description(), filename)
 			}
 		},
 		[ ref prog, ..] => println!("Usage: {} <2bit filename> <name> <start> <end>", prog),

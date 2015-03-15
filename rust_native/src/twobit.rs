@@ -1,7 +1,9 @@
 #![crate_name = "twobit"]
 #![crate_type = "dylib"]
-#![feature(macro_rules)]
-#![feature(associated_types)]
+#![feature(os)]
+#![feature(std_misc)]
+#![feature(core)]
+#![feature(io)]
 
 //! Implements the TwoBit struct giving read access to 2bit files in the format
 //! used by the UCSC Genome Browser (details at: http://genome.ucsc.edu/FAQ/FAQformat.html#format7).
@@ -9,11 +11,12 @@
 
 use std::os::MemoryMap;
 use std::collections::HashMap;
-use std::io::{ IoResult, IoError };
 use std::iter::FromIterator;
 use std::os::unix::AsRawFd;
+use std::io::Result;
+use std::io::{Error, ErrorKind};
 
-#[derive(Show)]
+#[derive(Debug)]
 struct Block { start: u32, length: u32 }
 
 struct Sequence {
@@ -26,38 +29,38 @@ struct Sequence {
 
 impl Sequence {
 	fn range<'a>(&'a self, start: u32, end: u32) -> SeqRange<'a> {
-		let mut rsize = (end - start + 1) as uint;
+		let mut rsize = (end - start + 1) as usize;
 		let mut end = end;
 
 		if end >= self.n_dna_bases {
-			let rest = rsize - self.n_dna_bases as uint;
+			let rest = rsize - self.n_dna_bases as usize;
 			end = self.n_dna_bases - 1;
-			rsize = (end - start + 1) as uint;
+			rsize = (end - start + 1) as usize;
 
 			// seq range chained with an iterator that repeats the same value
 			SeqRange { 
 				rsize: rsize, 
-				ptr: unsafe { self.dna_start.offset( (start / 4) as int) },
-				idx: 0u,
-				offset: (start % 4) as uint,
+				ptr: unsafe { self.dna_start.offset( (start / 4) as isize) },
+				idx: 0usize,
+				offset: (start % 4) as usize,
 				unk_blocks: &self.unk_blocks,
 				ub_exhausted: self.unk_blocks.len() == 0,
 				ub_idx: 0,
-				ub_start: if self.unk_blocks.len() > 0 { self.unk_blocks[0].start as uint } else { 0 },
-				ub_end: if self.unk_blocks.len() > 0 { (self.unk_blocks[0].start + self.unk_blocks[0].length - 1) as uint } else { 0 },
+				ub_start: if self.unk_blocks.len() > 0 { self.unk_blocks[0].start as usize } else { 0 },
+				ub_end: if self.unk_blocks.len() > 0 { (self.unk_blocks[0].start + self.unk_blocks[0].length - 1) as usize } else { 0 },
 				n_more: rest
 			}
 		} else {
 			SeqRange { 
 				rsize: rsize, 
-				ptr: unsafe { self.dna_start.offset( (start / 4) as int) },
-				idx: 0u,
-				offset: (start % 4) as uint,
+				ptr: unsafe { self.dna_start.offset( (start / 4) as isize) },
+				idx: 0usize,
+				offset: (start % 4) as usize,
 				unk_blocks: &self.unk_blocks,
 				ub_exhausted: self.unk_blocks.len() == 0,
 				ub_idx: 0,
-				ub_start: if self.unk_blocks.len() > 0 { self.unk_blocks[0].start as uint } else { 0 },
-				ub_end: if self.unk_blocks.len() > 0 { (self.unk_blocks[0].start + self.unk_blocks[0].length - 1) as uint } else { 0 },
+				ub_start: if self.unk_blocks.len() > 0 { self.unk_blocks[0].start as usize } else { 0 },
+				ub_end: if self.unk_blocks.len() > 0 { (self.unk_blocks[0].start + self.unk_blocks[0].length - 1) as usize } else { 0 },
 				n_more: 0
 			}
 		}
@@ -70,16 +73,16 @@ impl Sequence {
 
 /// Sequence range iterator
 pub struct SeqRange<'a> {
-	rsize: uint,
+	rsize: usize,
 	ptr: * mut u8,
-	idx: uint,
-	offset: uint,
+	idx: usize,
+	offset: usize,
 	unk_blocks: &'a Vec<Block>,
 	ub_exhausted: bool,
-	ub_idx: uint,
-	ub_start: uint,
-	ub_end: uint,
-	n_more: uint
+	ub_idx: usize,
+	ub_start: usize,
+	ub_end: usize,
+	n_more: usize
 }
 
 impl<'a> SeqRange<'a> {
@@ -115,8 +118,8 @@ impl<'a> Iterator for SeqRange<'a> {
 								self.ub_exhausted = true;
 								break;
 							} else {
-								self.ub_start = self.unk_blocks[self.ub_idx].start as uint;
-								self.ub_end = self.ub_start + self.unk_blocks[self.ub_idx].length as uint - 1;
+								self.ub_start = self.unk_blocks[self.ub_idx].start as usize;
+								self.ub_end = self.ub_start + self.unk_blocks[self.ub_idx].length as usize - 1;
 							}
 						} else if self.idx >= self.ub_start {
 							self.increment_idx();
@@ -139,7 +142,7 @@ impl<'a> Iterator for SeqRange<'a> {
 		}
 	}
 
-	fn size_hint(&self) -> (uint, Option<uint>) {
+	fn size_hint(&self) -> (usize, Option<usize>) {
 		// lower and upper bound (same)
 		let bound = self.rsize - self.idx - self.n_more;
 		(bound, Some(bound))
@@ -158,29 +161,29 @@ macro_rules! try_rt(
     ($e:expr) => (match $e { Ok(e) => e, Err(rustrt::rtio::IoError{code: code, extra: _, detail: _}) => return Err(IoError::from_errno(code, true)) })
 );
 
-fn mmap_read_u32(ptr: * mut u8, offset: uint) -> u32 {
+fn mmap_read_u32(ptr: * mut u8, offset: isize) -> u32 {
 	return unsafe { 
-		let tmp : *const u32 = std::mem::transmute(ptr.offset(offset as int) as *const [u8; 4]);
+		let tmp : *const u32 = std::mem::transmute(ptr.offset(offset) as *const [u8; 4]);
 		*tmp };
 }
 
-fn mmap_read_u8(ptr: * mut u8, offset: uint) -> u8 {
+fn mmap_read_u8(ptr: * mut u8, offset: isize) -> u8 {
 	return unsafe {
-		*ptr.offset(offset as int)
+		*ptr.offset(offset as isize)
 	};
 }
 
 fn read_blocks(data: * mut u8, offset: u32) -> (Vec<Block>, u32) {
-	let len = mmap_read_u32(data, offset as uint);
+	let len = mmap_read_u32(data, offset as isize);
 	let mut vec = Vec::<Block>::new();
 	
 	if len > 0 {
 		let off1 = offset + 4;
 		let off2 = offset + 4 + len*4;
 		
-		for i in range(0, len) {
-			let start = mmap_read_u32(data, (off1 + i*4) as uint);
-			let size = mmap_read_u32(data, (off2 + i*4) as uint);
+		for i in 0..len {
+			let start = mmap_read_u32(data, (off1 + i*4) as isize);
+			let size = mmap_read_u32(data, (off2 + i*4) as isize);
 			
 			vec.push(Block{ start: start, length: size });
 		}
@@ -190,22 +193,23 @@ fn read_blocks(data: * mut u8, offset: u32) -> (Vec<Block>, u32) {
 }
 
 fn mmap_read_index(data: *mut u8, count: u32) -> HashMap<String, Sequence> {
-		let mut index = HashMap::with_capacity(count as uint);
+		let mut index = HashMap::with_capacity(count as usize);
 	
-		let mut header_start = 16u;
+		let mut header_start = 16isize;
 			
-		for _ in range(0, count) {
+		for _ in 0..count {
 			let name_size = mmap_read_u8(data, header_start);
 			let name = unsafe {
-				let slice: &mut [u8] = std::mem::transmute(std::raw::Slice { data: data.offset((header_start + 1) as int), len: name_size as uint });
+				let slice: &mut [u8] = std::mem::transmute(std::raw::Slice { data: data.offset((header_start + 1) as isize), len: name_size as usize });
 				let strslice = std::str::from_utf8_unchecked(slice);				
-				String::from_str(strslice)
+				//String::from_str(strslice)
+				strslice.to_string()
 			};
 			
-			let offset = mmap_read_u32(data, header_start + 1 + name_size as uint);
+			let offset = mmap_read_u32(data, header_start + 1 + name_size as isize);
 			
 			// get actual info
-			let dna_size = mmap_read_u32(data, offset as uint);
+			let dna_size = mmap_read_u32(data, offset as isize);
 
 			// unknown blocks
 			let (unk_blocks, offset) = read_blocks(data, offset + 4);
@@ -214,23 +218,23 @@ fn mmap_read_index(data: *mut u8, count: u32) -> HashMap<String, Sequence> {
 			let (mask_blocks, offset) = read_blocks(data, offset);
 			
 			// actual pointer to DNA data
-			let dna_ptr = unsafe { data.offset((offset + 4) as int) }; // + reserved
+			let dna_ptr = unsafe { data.offset((offset + 4) as isize) }; // + reserved
 			
 			index.insert(name, Sequence { n_dna_bases: dna_size, unk_blocks: unk_blocks, mask_blocks: mask_blocks, dna_start: dna_ptr });			
 			
-			header_start = header_start + 1 + name_size as uint + 4;
+			header_start = header_start + 1 + name_size as isize + 4;
 		}
 	
 		return index;
 }
 
-fn byte_to_base(value: u8, offset: uint) -> char {
+fn byte_to_base(value: u8, offset: usize) -> char {
 	let bases = ['T', 'C', 'A', 'G'];
 	let rev_offset = 3 - offset;
 	let mask = 3 << (rev_offset * 2);
 	let idx = (value & mask) >> (rev_offset * 2);
 	
-	return bases[idx as uint];
+	return bases[idx as usize];
 }
 
 impl TwoBit {
@@ -240,17 +244,17 @@ impl TwoBit {
 	/// # Arguments
 	///
 	/// - filename - string slice with the path to the 2bit file
-	pub fn new(filename: &str) -> IoResult<TwoBit> {
+	pub fn new(filename: &str) -> Result<TwoBit> {
 		// TODO: revise interface to take a "File" instance instead of a filename
 	
 		// open file
-		let fh = try!(std::io::File::open(&Path::new(filename)));
-		let fs = try!(fh.stat());
+		let fh = try!(std::fs::File::open(&Path::new(filename)));
+		let fmeta = try!(fh.metadata());
 	
 		// build memory map
-		let mmap = match MemoryMap::new(fs.size as uint, &[ std::os::MapOption::MapReadable, std::os::MapOption::MapFd(fh.as_raw_fd())]) {
+		let mmap = match MemoryMap::new(fmeta.len() as usize, &[ std::os::MapOption::MapReadable, std::os::MapOption::MapFd(fh.as_raw_fd())]) {
 			Ok(val) => val,
-			Err(_) => return Err(IoError{kind: std::io::OtherIoError, desc: "Memory map failed!", detail: None})
+			Err(_) => return Err(Error::new(ErrorKind::Other, "Memory map failed!", None))
 		};
 		
 		// TODO: add madvise call 
@@ -260,22 +264,22 @@ impl TwoBit {
 		let val = mmap_read_u32(mmap.data(), 0);
 		
 		if val != 0x1A412743 {
-			return Err(IoError { kind: std::io::OtherIoError, desc: "Invalid signature or wrong architecture.", detail: None });
+			return Err(Error::new(ErrorKind::Other, "Invalid signature or wrong architecture.", None));
 		}
 		
 		let val = mmap_read_u32(mmap.data(), 4);
 		if val != 0 {
-			return Err(IoError { kind: std::io::OtherIoError, desc: "Unknown file version.", detail: None });
+			return Err(Error::new(ErrorKind::Other, "Unknown file version.", None));
 		} // TODO: actually report version found
 		
 		let n_sequences = mmap_read_u32(mmap.data(), 8);
 		if n_sequences == 0 {
-			return Err(IoError { kind: std::io::OtherIoError, desc: "Zero sequence count.", detail: None });
+			return Err(Error::new(ErrorKind::Other, "Zero sequence count.", None));
 		}
 		
 		let val = mmap_read_u32(mmap.data(), 12);
 		if val != 0 {
-			return Err(IoError { kind: std::io::OtherIoError, desc: "Reserved bytes not zero.", detail: None });
+			return Err(Error::new(ErrorKind::Other, "Reserved bytes not zero.", None ));
 		} // TODO: actually report value found
 		
 		// parse index
@@ -295,7 +299,7 @@ impl TwoBit {
 	/// - start - zero based start coordinate for range
 	/// - end - zero based end coordinate (inclusive) for range
 	pub fn sequence(&self, chrom: &str, start: u32, end: u32) -> Option<String> {
-		match self.seqs.get(&String::from_str(chrom)) {
+		match self.seqs.get(chrom) {
 			Some(ref seq) => Some(seq.string(start, end)),
 			None => None
 		}
@@ -312,7 +316,7 @@ impl TwoBit {
 	/// - start - zero based start coordinate for range
 	/// - end - zero based end coordinate (inclusive) for range
 	pub fn sequence_iter<'a>(&'a self, chrom: &str, start: u32, end: u32) -> Option<SeqRange<'a>> {
-		match self.seqs.get(&String::from_str(chrom)) {
+		match self.seqs.get(chrom) {
 			Some(ref seq) => Some(seq.range(start, end)),
 			None => None
 		}
@@ -324,7 +328,7 @@ impl TwoBit {
 	///
 	/// - chrom - sequence name, typically the chromosome name
 	pub fn sequence_len(&self, chrom: &str) -> Option<u32> {
-		match self.seqs.get(&String::from_str(chrom)) {
+		match self.seqs.get(chrom) {
 			Some(&Sequence{ n_dna_bases: n, ..}) => Some(n),
 			None => None
 		}	
@@ -341,7 +345,7 @@ impl TwoBit {
 	///
 	/// - chrom - sequence name, typically the chromosome name
 	pub fn base_frequencies(&self, chrom: &str) -> Option<[f64; 4]> {
-		match self.seqs.get(&String::from_str(chrom)) {
+		match self.seqs.get(chrom) {
 			Some(ref seq) => {
 				let mut counts = [0f64, 0.0, 0.0, 0.0];
 
