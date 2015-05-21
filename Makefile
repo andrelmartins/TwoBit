@@ -7,7 +7,7 @@ test: main.c twobit.c twobit.h
 	gcc -o test -Wall -g main.c twobit.c
 
 twobit.so: twobit.c
-	gcc -o twobit.so -shared twobit.c
+	gcc -o twobit.so -shared twobit.c -fPIC
 
 twoBit.pkg:
 	rm -Rf pkg.roxygen
