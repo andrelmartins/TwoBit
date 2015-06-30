@@ -1,8 +1,6 @@
 // test main
 extern crate twobit;
-use std::os;
 use twobit::TwoBit;
-use std::io::Error;
 
 fn print_sequence(seq: &str) {
    let mut i = 0i32;
@@ -18,41 +16,44 @@ fn print_sequence(seq: &str) {
 }
 
 fn main() {
-	let args = os::args();
+	let mut args = std::env::args();
 
-	match args.as_slice() {
-		[ _, ref filename, ref chrom, ref start, ref end ] => {
+	if args.len() != 5 {
+		println!("Usage: {} <2bit filename> <name> <start> <end>", args.next().unwrap());
+	} else {
+		let mut args = args.skip(1);
+		let filename = args.next().unwrap();
+		let chrom = args.next().unwrap();
+		let start = args.next().unwrap();
+		let end = args.next().unwrap();
 		
-			let start = start.parse::<u32>().ok().expect("Invalid start coordinate");
-			let end = end.parse::<u32>().ok().expect("Invalid end coordinate");
+		let start = start.parse::<u32>().ok().expect("Invalid start coordinate");
+		let end = end.parse::<u32>().ok().expect("Invalid end coordinate");
+	
+		let tb = TwoBit::new(&filename);
 		
-			let tb = TwoBit::new(filename.as_slice());
+		match tb {
+			Ok(tbv) => {
+				// get chromosome size
+				match tbv.sequence_len(&chrom) {
+					Some(n) => println!("{}: size = {}", chrom, n),
+					None => {
+						println!("unknown sequence: {}", chrom);
+						return;
+					}
+				};
 			
-			match tb {
-				Ok(tbv) => {
-					// get chromosome size
-					match tbv.sequence_len(chrom.as_slice()) {
-						Some(n) => println!("{}: size = {}", chrom, n),
-						None => {
-							println!("unknown sequence: {}", chrom);
-							return;
-						}
-					};
-				
-					let seq = tbv.sequence(chrom.as_slice(), start, end);
-					match seq {
-						Some(seqstr) => {
-							println!(">{}:{}-{}", chrom, start, end + 1);
-							//println!("{}", seqstr);
-							print_sequence(seqstr.as_slice());
-						},
-						None => println!("nothing")
-					}; 
-				},
-				Err(ioerr) => println!("{}: {}", ioerr.description(), filename)
-			}
-		},
-		[ ref prog, ..] => println!("Usage: {} <2bit filename> <name> <start> <end>", prog),
-		_ => panic!()
+				let seq = tbv.sequence(&chrom, start, end);
+				match seq {
+					Some(seqstr) => {
+						println!(">{}:{}-{}", chrom, start, end + 1);
+						//println!("{}", seqstr);
+						print_sequence(&seqstr);
+					},
+					None => println!("nothing")
+				}; 
+			},
+			Err(ioerr) => println!("{}: {}", ioerr, filename)
+		}
 	}
 }

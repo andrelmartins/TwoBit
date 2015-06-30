@@ -1,20 +1,18 @@
 #![crate_name = "twobit"]
 #![crate_type = "dylib"]
-#![feature(os)]
-#![feature(std_misc)]
-#![feature(core)]
-#![feature(io)]
 
 //! Implements the TwoBit struct giving read access to 2bit files in the format
 //! used by the UCSC Genome Browser (details at: http://genome.ucsc.edu/FAQ/FAQformat.html#format7).
+extern crate mmap;
 
-
-use std::os::MemoryMap;
+use mmap::MemoryMap;
+//use std::os::MemoryMap;
 use std::collections::HashMap;
 use std::iter::FromIterator;
-use std::os::unix::AsRawFd;
+use std::os::unix::io::AsRawFd;
 use std::io::Result;
 use std::io::{Error, ErrorKind};
+use std::slice;
 
 #[derive(Debug)]
 struct Block { start: u32, length: u32 }
@@ -200,9 +198,10 @@ fn mmap_read_index(data: *mut u8, count: u32) -> HashMap<String, Sequence> {
 		for _ in 0..count {
 			let name_size = mmap_read_u8(data, header_start);
 			let name = unsafe {
-				let slice: &mut [u8] = std::mem::transmute(std::raw::Slice { data: data.offset((header_start + 1) as isize), len: name_size as usize });
-				let strslice = std::str::from_utf8_unchecked(slice);				
-				//String::from_str(strslice)
+				let slice: & [u8] = slice::from_raw_parts(
+					data.offset((header_start + 1) as isize),
+					name_size as usize);
+				let strslice = std::str::from_utf8_unchecked(slice);
 				strslice.to_string()
 			};
 			
@@ -248,13 +247,13 @@ impl TwoBit {
 		// TODO: revise interface to take a "File" instance instead of a filename
 	
 		// open file
-		let fh = try!(std::fs::File::open(&Path::new(filename)));
+		let fh = try!(std::fs::File::open(filename));
 		let fmeta = try!(fh.metadata());
 	
 		// build memory map
-		let mmap = match MemoryMap::new(fmeta.len() as usize, &[ std::os::MapOption::MapReadable, std::os::MapOption::MapFd(fh.as_raw_fd())]) {
+		let mmap = match MemoryMap::new(fmeta.len() as usize, &[ mmap::MapOption::MapReadable, mmap::MapOption::MapFd(fh.as_raw_fd())]) {
 			Ok(val) => val,
-			Err(_) => return Err(Error::new(ErrorKind::Other, "Memory map failed!", None))
+			Err(_) => return Err(Error::new(ErrorKind::Other, "Memory map failed!"))
 		};
 		
 		// TODO: add madvise call 
@@ -264,22 +263,22 @@ impl TwoBit {
 		let val = mmap_read_u32(mmap.data(), 0);
 		
 		if val != 0x1A412743 {
-			return Err(Error::new(ErrorKind::Other, "Invalid signature or wrong architecture.", None));
+			return Err(Error::new(ErrorKind::Other, "Invalid signature or wrong architecture."));
 		}
 		
 		let val = mmap_read_u32(mmap.data(), 4);
 		if val != 0 {
-			return Err(Error::new(ErrorKind::Other, "Unknown file version.", None));
+			return Err(Error::new(ErrorKind::Other, "Unknown file version."));
 		} // TODO: actually report version found
 		
 		let n_sequences = mmap_read_u32(mmap.data(), 8);
 		if n_sequences == 0 {
-			return Err(Error::new(ErrorKind::Other, "Zero sequence count.", None));
+			return Err(Error::new(ErrorKind::Other, "Zero sequence count."));
 		}
 		
 		let val = mmap_read_u32(mmap.data(), 12);
 		if val != 0 {
-			return Err(Error::new(ErrorKind::Other, "Reserved bytes not zero.", None ));
+			return Err(Error::new(ErrorKind::Other, "Reserved bytes not zero."));
 		} // TODO: actually report value found
 		
 		// parse index
